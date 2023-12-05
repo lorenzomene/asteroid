@@ -51,7 +51,7 @@
     KEY_ENTER   EQU 28
     KEY_W       EQU 11h
     KEY_S       EQU 1Fh
-
+    KEY_SPACE   EQU 39h
     BAR_STEP_SIZE    EQU 10
     
     TARGET_FRAMERATE EQU 20
@@ -107,19 +107,19 @@
                        0  ,0  ,0  ,0  ,2  ,2  ,0  ,0  ,0  ,0, \
                        0  ,0  ,0  ,0  ,2  ,2  ,0  ,0  ,0  ,0
 
-    ;SPRITE_PRETO   DB 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
-    ;                   0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0
+    SPRITE_PRETO   DB 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0, \
+                       0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0
 
     ; Sprite com borda branca para debugar                  
-    SPRITE_PRETO   DB 15  ,15  ,15  ,15  ,15  ,15  ,15  ,15  ,15  ,15, \
+    SPRITE_DEBUG   DB 15,15 ,15 ,15 ,15 ,15 ,15 ,15 ,15 ,15, \
                     15  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,15, \
                     15  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,15, \
                     15  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,15, \
@@ -128,7 +128,10 @@
                     15  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,15, \
                     15  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,15, \
                     15  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,15, \
-                    15  ,15  ,15  ,15  ,15  ,15  ,15  ,15  ,15  ,15
+                    15  ,15 ,15 ,15 ,15 ,15 ,15 ,15 ,15 ,15
+
+    DEBUG_MODE EQU 0 ; 1 = Ativa o sprite de debug, 0 = Desativa o sprite de debug
+
     SPRITE_WIDTH EQU 10
     SPRITE_HEIGHT EQU 10
 
@@ -341,6 +344,28 @@ PINTA_LINHA proc
     ret
 endp
 
+; Limpa sprite da tela em AX
+LIMPA_SPRITE proc
+    push SI 
+    push BX
+
+    mov BX, DEBUG_MODE
+    cmp BX, 1
+    je __USA_SPRITE_DEBUG
+
+    mov SI, offset SPRITE_PRETO
+    jmp __LIMPA_SPRITE_FIM
+
+    __USA_SPRITE_DEBUG:
+        mov SI, offset SPRITE_DEBUG
+
+    __LIMPA_SPRITE_FIM:
+    call DESENHA_SPRITE
+
+    pop BX
+    pop SI
+    ret
+endp
 ;Desenha o elemento em SI (com 10x10) em AX 
 DESENHA_SPRITE proc
     push CX
@@ -556,8 +581,7 @@ MOVE_ASTEROIDES proc
         ; AX = Coordenada do asteroide
         
         ;1 - Limpa o asteroide
-        mov SI, offset SPRITE_PRETO
-        call DESENHA_SPRITE
+        call LIMPA_SPRITE
 
         ;2 - Move o asteroide
         sub AX, DX
@@ -733,6 +757,8 @@ _MOVE_NAVE proc
     cmp AH, KEY_S 
     je __MOVER_BAIXO
 
+    cmp AH, KEY_SPACE
+    je __ATIRAR
 
     jmp __MOVE_NAVE_FIM
 
@@ -742,19 +768,19 @@ _MOVE_NAVE proc
 
     __MOVER_BAIXO:
         add naveY, NAVE_SPEED
-        ;jmp __MOVE_NAVE_FIM
+        jmp __MOVE_NAVE_FIM
+    
+    __ATIRAR:
+        jmp __MOVE_NAVE_FIM
+
     __MOVE_NAVE_FIM:
 
         ; Limpa a posição anterior da nave
         pop AX ; NaveY
         pop BX ; NaveX
         call CONVERTE_XY
-
-        push SI
-        mov SI, offset SPRITE_PRETO
-        call DESENHA_SPRITE
-
-        pop SI
+        call LIMPA_SPRITE
+        
         pop DX
         pop CX
         pop BX
