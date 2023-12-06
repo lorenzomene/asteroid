@@ -159,21 +159,22 @@
     MAX_ESCUDOS     EQU 1 
     MAX_NIVEIS      EQU 5
     TEMPO_POR_NIVEL EQU 30
+    TEMPO_ENTRE_ESCUDOS EQU 10
 
     ; Estado inicial do jogo
     NRO_VIDAS_INICIAL       EQU 10
-    TEMPO_IMUNIDADE_INICIAL EQU 0 
-    NAVE_X_INICIAL          EQU 30
-    NAVE_Y_INICIAL          EQU 80
+    NAVE_X_INICIAL          EQU 160
+    NAVE_Y_INICIAL          EQU 100
     NIVEL_INICIAL           EQU 1
 
     ; Estado do jogo
     nroVidas        DB NRO_VIDAS_INICIAL
-    tempoImunidade  DW TEMPO_IMUNIDADE_INICIAL
     tempoRestante   DW TEMPO_POR_NIVEL  
     naveX           DW NAVE_X_INICIAL
     naveY           DW NAVE_Y_INICIAL
     nivelAtual      DB NIVEL_INICIAL
+    tempoImunidade  DW 0
+    cooldownEscudo  DW 0
 
     ASTEROIDES      DW MAX_ASTEROIDES dup(0)
     PROJETEIS       DW MAX_PROJETEIS dup(0)
@@ -983,11 +984,21 @@ DIMINUI_TEMPO_IMUNIDADE proc
         ret
 endp
 
+DIMINUI_TEMPO_COOLDOWN_ESCUDO proc
+    cmp cooldownEscudo, 0
+    jle __FIM_DIMINUI_TEMPO_COOLDOWN_ESCUDO
+
+    dec cooldownEscudo
+
+    __FIM_DIMINUI_TEMPO_COOLDOWN_ESCUDO:
+        ret
+endp
+
 DIMINUI_VIDA_NAVE proc
     cmp tempoImunidade, 0
     jg __FIM_DIMINUI_VIDA_NAVE
 
-    sub nroVidas, 3
+    sub nroVidas, 1
     cmp nroVidas, 0
 
     jge __FIM_DIMINUI_VIDA_NAVE
@@ -1002,11 +1013,12 @@ endp
 
 RESET_JOGO proc
     mov nroVidas, NRO_VIDAS_INICIAL
-    mov tempoImunidade, TEMPO_IMUNIDADE_INICIAL
     mov tempoRestante, TEMPO_POR_NIVEL
     mov naveX, NAVE_X_INICIAL
     mov naveY, NAVE_Y_INICIAL
     mov nivelAtual, NIVEL_INICIAL
+    mov tempoImunidade, 0
+    mov cooldownEscudo, 0
 
     push AX
     push BX
@@ -1051,10 +1063,13 @@ GERA_ESCUDO proc
     push DX
     push SI
 
+    cmp nivelAtual, 2
+    jl __FIM_GERA_ESCUDO
+
     cmp tempoImunidade, 0
     jg __FIM_GERA_ESCUDO
 
-    cmp nroVidas, 5
+    cmp cooldownEscudo, 0
     jg __FIM_GERA_ESCUDO
 
     ; Gera um numero aleatorio entre 0 e 9
@@ -1090,6 +1105,7 @@ GERA_ESCUDO proc
         
         pop SI
         mov [SI], AX
+        mov cooldownEscudo, TEMPO_ENTRE_ESCUDOS
 
     __FIM_GERA_ESCUDO:
         pop SI
@@ -1436,6 +1452,7 @@ INICIAR_JOGO proc
         xor BX, BX
         call GERA_ESCUDO
         call DIMINUI_TEMPO_IMUNIDADE
+        call DIMINUI_TEMPO_COOLDOWN_ESCUDO
         call GERA_ASTEROIDE
         call GERA_REPARADOR
         
