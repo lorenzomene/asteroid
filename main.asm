@@ -138,18 +138,19 @@
     ; Constantes do jogo                  
     NAVE_SPEED  EQU 2
     MAX_ASTEROIDES  EQU 8
-                       
+    MAX_PROJETEIS   EQU 20         
                        
                        
                        
     ; Estado do jogo
-    nroVidas        DB 5
+    nroVidas        DB 10
     tempoRestante   DW 30  
     naveX           DW 30
     naveY           DW 80
     nivelAtual      DB 1
     
-    ASTEROIDES      DW 0,0,0,0,0,0,0,0
+    ASTEROIDES      DW MAX_ASTEROIDES dup(0)
+    PROJETEIS       DW MAX_PROJETEIS dup(0)
           
 .code
 
@@ -536,14 +537,307 @@ ATUALIZA_BARRA_VIDA proc
     mov AX, BAR_STEP_SIZE
     mul nroVidas
     mov DX, AX
-    
-    mov AX, 59392 ; Linha
+
+    mov AX, SCREEN_WIDTH * 185
+    add AX, 210
+
     mov BX, COLOR_LIGHT_GREEN
     call ATUALIZAR_BARRA_STATUS    
     
     pop DX
     pop BX
     pop AX
+    ret
+endp
+
+VERIFICA_COLISAO_SPRITE_COM_PIXEL proc
+    push AX
+    push BX
+    push CX
+    push DX
+    push DI
+
+    ; AX = coordenada linear do sprite
+    ; BX = coordenada linear do pixel
+    xor DI, DI
+    xor CX, CX
+    ; Converte coordenada do sprite para coordenada cartesiana
+    call COORD_LINEAR_PARA_CARTESIANA
+    push AX ; X
+    push DX ; Y
+    add DI, WORD_SIZE * 2 ; Itens na pilha
+    ; Converte coordenada do pixel para coordenada cartesiana
+    mov AX, BX
+    call COORD_LINEAR_PARA_CARTESIANA
+    
+    pop BX; spriteY
+
+    sub DI, WORD_SIZE; Itens na pilha
+
+    cmp BX, DX
+    jnge __NAO_COLIDE_PIXEL ; BX > DX 
+
+    add DX, SPRITE_HEIGHT
+    cmp BX, DX
+    jnle __NAO_COLIDE_PIXEL ; BX < BX
+
+
+    pop BX ; spriteX
+    sub DI, WORD_SIZE ; Itens na pilha
+
+    cmp BX, AX
+    jnge __NAO_COLIDE_PIXEL ; BX < AX
+
+    ; BX < AX1
+    ; BX > AX2
+    add AX, SPRITE_WIDTH
+
+    cmp BX, AX
+    jnle __NAO_COLIDE_PIXEL ; BX > AX
+
+    mov CX, 1
+    jmp __FIM_VERIFICA_COLISAO_SPRITE_COM_PIXEL
+    ; Rect.X1
+    ; Rect.Y1
+    ; BX < ay1
+    ; BX > ay2
+    
+    ; BX > ax1
+    ; BX < ax2 
+    __NAO_COLIDE_PIXEL:
+        mov CX, 0
+        jmp __FIM_VERIFICA_COLISAO_SPRITE_COM_PIXEL
+
+    __FIM_VERIFICA_COLISAO_SPRITE_COM_PIXEL:
+
+        add SP, DI ; Desempilha os valores que ainda estao na pilha
+        cmp CX, 1
+
+
+        pop DI
+        pop DX
+        pop CX
+        pop BX
+        pop AX
+        ret
+    ; Rect.Y2
+
+endp
+
+; Verifica se o sprite 1 colide com o sprite 2
+; AX = coordenada linear do sprite 1
+; BX = coordenada linear do sprite 2
+VERIFICA_COLISAO_SPRITE proc
+    push CX
+    push DX
+    push DI
+
+    ; Converte coordenada do sprite 1 para coordenada cartesiana
+    xor DI, DI
+    call COORD_LINEAR_PARA_CARTESIANA
+    push AX ; x
+    mov CX, DX
+
+    
+    ; Converte coordenada do sprite 2 para coordenada cartesiana
+    mov AX, BX
+    call COORD_LINEAR_PARA_CARTESIANA
+
+    push AX
+    push CX
+    push DX
+
+    ; Stack agora tem
+    ; RectA.X
+    ; RectB.X
+    ; RectA.Y
+    ; RectB.Y
+    
+
+    ; Verifica colisao na vertical
+    ;RectA.Y1 > RectB.Y2 && RectA.Y2 < RectB.Y1
+    ;AX > DX && CX < BX
+    pop BX ; bY1
+    pop AX ; aY1
+
+    mov DI, WORD_SIZE * 2 ; Itens na pilha
+
+
+    mov CX, AX
+    add CX, SPRITE_HEIGHT
+
+    mov DX, BX
+    add DX, SPRITE_HEIGHT
+
+    cmp AX, DX
+    jnle __NAO_COLIDE ; AX > DX 
+
+    cmp CX, BX
+    jnge __NAO_COLIDE ; CX < BX
+
+    ; Verifica colisão horizontal
+    pop AX ;aX1
+    pop BX ;bX1
+
+    xor DI, DI
+
+    mov CX, AX
+    add CX, SPRITE_HEIGHT ; aX2
+
+    mov DX, BX
+    add DX, SPRITE_HEIGHT ; bX2
+
+    cmp AX, DX
+    jnle __NAO_COLIDE ; AX < DX
+
+    cmp CX, BX
+    jnge __NAO_COLIDE ; CX > BX
+    ; AX > DX && CX < BX
+
+    mov CX, 1
+    jmp __FIM_VERIFICA_COLISAO_SPRITE
+
+    __NAO_COLIDE:
+        mov CX, 0
+        jmp __FIM_VERIFICA_COLISAO_SPRITE
+
+    __FIM_VERIFICA_COLISAO_SPRITE:
+        add SP, DI ; Desempilha os valores que ainda estao na pilha
+ 
+        cmp CX, 1
+
+        pop DI
+        pop DX
+        pop CX
+    ret
+endp
+
+
+MOVE_PROJETIL proc
+    push AX
+    push BX
+    push CX
+    push DX
+    push SI
+
+    mov CX, MAX_PROJETEIS
+    mov SI, offset PROJETEIS
+
+    __VERIFICA_PROJETEIS:
+        mov AX, [SI]
+        cmp AX, 0 ; Se existe o projetil, move ele
+        jne __MOVE_PROJETIL
+        
+        __CONTINUA_VERIFICA_PROJETEIS:
+            add SI, WORD_SIZE ; Proximo projetil
+            loop __VERIFICA_PROJETEIS
+
+    jmp __FIM_MOVE_PROJETIL
+    
+    __MOVE_PROJETIL:
+        ; AX = Coordenada do projetil
+
+        ;1 - Limpa o projetil
+        mov DX, 2 ; Tamanho do projetil
+        mov BX, COLOR_BLACK
+        call DESENHA_LINHA
+
+        ;2 - Move o projetil
+        add AX, NAVE_SPEED * 2
+
+        ;3 - Verifica se o projetil saiu da tela
+        push AX
+        ; Se a posição na linha for 0, o projetil saiu da tela
+        call COORD_LINEAR_PARA_CARTESIANA
+        cmp DX, 0
+        pop AX
+        je __DESTROI_PROJETIL
+
+        ;4 - Verifica se o projetil atingiu um asteroide
+        push SI
+        push AX
+        push BX
+        push CX
+
+        mov CX, MAX_ASTEROIDES
+        mov DI, offset ASTEROIDES
+        ;1. iterar na lista de asteroides
+        __VERIFICAR_COLISAO_ASTEROIDE_PROJETIL:
+            mov AX, [DI]
+            cmp AX, 0
+            jne __VERIFICA_ASTEROIDE_PROJETIL
+        
+            __CONTINUA_VERIFICA_ASTEROIDE_PROJETIL:
+                add DI, WORD_SIZE ; Proximo ASTEROIDE
+                loop __VERIFICAR_COLISAO_ASTEROIDE_PROJETIL
+
+        jmp _FIM_VERIFICA_ASTEROIDE_PROJETIL
+
+        __VERIFICA_ASTEROIDE_PROJETIL:
+            ;ax = coordenada no asteroide
+            ;bx = coordenada do projetil
+            mov BX, [DI]
+            mov AX, [SI]
+            add AX, 4 ; Ajusta a coordenada do projetil para a ponta do projetil
+            
+            ;2. Verificar se o projetil colide com o asteroide
+            call VERIFICA_COLISAO_SPRITE_COM_PIXEL
+
+            ;3. Se colidir, destruir o projetil e o asteroide
+            je __DESTROI_ASTEROIDE_PROJETIL
+            jmp __CONTINUA_VERIFICA_ASTEROIDE_PROJETIL
+
+        _FIM_VERIFICA_ASTEROIDE_PROJETIL:
+            pop CX
+            pop BX
+            pop AX
+            pop SI
+        ;5 - Desenha o projetil na nova posição
+        mov DX, 2 
+        mov BX, COLOR_WHITE
+        call DESENHA_LINHA
+
+
+        mov [SI], AX ; Salva a nova posição do projetil
+        jmp __CONTINUA_VERIFICA_PROJETEIS
+
+    __DESTROI_ASTEROIDE_PROJETIL:
+        pop CX
+        pop BX
+        pop AX
+        pop SI
+
+        mov AX, [DI]
+        call LIMPA_SPRITE
+
+        mov BX, 0
+        mov [DI], BX
+        jmp __DESTROI_PROJETIL
+
+    __DESTROI_PROJETIL:
+        mov BX, 0
+        mov [SI], BX
+        jmp __CONTINUA_VERIFICA_PROJETEIS
+
+    __FIM_MOVE_PROJETIL:
+        pop SI
+        pop DX
+        pop CX
+        pop BX
+        pop AX
+        ret
+endp
+
+; Recebe coordenada linear em AX
+; Retorna coordenada cartesiana(x, y) em AX,DX 
+COORD_LINEAR_PARA_CARTESIANA proc
+    push BX
+
+    xor DX, DX 
+    mov BX, SCREEN_WIDTH
+    div BX
+
+    pop BX
     ret
 endp
 
@@ -588,22 +882,38 @@ MOVE_ASTEROIDES proc
 
         ;3 - Verifica se o asteroide saiu da tela
         push AX
-        push BX
         push DX
 
-        ; Se AX % 320 == 0, o asteroide saiu da tela
-        xor DX,DX 
-        mov BX, SCREEN_WIDTH
-        div BX
-        
-        cmp DX, 0
+        call COORD_LINEAR_PARA_CARTESIANA
+        cmp AX, 0
 
         pop DX
-        pop BX
         pop AX
 
         je __DESTROI_ASTEROIDE
 
+        ;4 - Verifica se o asteroide bateu na nave
+        push AX
+        push BX
+        push CX
+
+        mov CX, AX
+
+        mov AX, naveY
+        mov BX, naveX
+
+        call CONVERTE_XY
+
+        ; AX = coordenada linear da nave
+        ; BX = coordenada linear do asteroide
+        mov BX, CX
+        call VERIFICA_COLISAO_SPRITE
+
+        pop CX
+        pop BX
+        pop AX
+
+        je __COLISAO_ASTEROIDE_NAVE
 
         ;4 - Desenha o asteroide na nova posição
         mov SI, offset SPRITE_METEORO
@@ -615,6 +925,11 @@ MOVE_ASTEROIDES proc
         jmp __CONTINUA_VERIFICA_ASTEROIDES_EXISTENTES
 
     jmp FIM_MOVE_ASTEROIDES
+
+    __COLISAO_ASTEROIDE_NAVE:
+        call DIMINUI_VIDA_NAVE
+        jmp __DESTROI_ASTEROIDE
+
     __DESTROI_ASTEROIDE:
         pop SI
         mov BX, 0
@@ -628,6 +943,18 @@ MOVE_ASTEROIDES proc
         pop SI
         pop CX
     ret
+endp
+
+DIMINUI_VIDA_NAVE proc
+    sub nroVidas, 1
+    cmp nroVidas, 0
+
+    jne __FIM_DIMINUI_VIDA_NAVE
+    mov AH, 4CH
+    int 21H
+
+    __FIM_DIMINUI_VIDA_NAVE:
+        ret
 endp
 
 GERA_ASTEROIDE proc
@@ -660,7 +987,7 @@ GERA_ASTEROIDE proc
         add AX, SCREEN_WIDTH * 2 - 30 ; Move o asteoide para o lado direito da tela
         
         mov SI, offset SPRITE_METEORO
-        call DESENHA_SPRITE
+        call DESENHA_SPRITE 
         
         mov SI, BX
         mov [SI], AX
@@ -692,8 +1019,9 @@ INICIAR_JOGO proc
         call ATUALIZA_NAVE
 
         call SLEEP 
+        call MOVE_PROJETIL
         call MOVE_ASTEROIDES
-        
+
         inc BX
         cmp BX, TARGET_FRAMERATE
         je ATUALIZA_TEMPO_RESTANTE
@@ -728,6 +1056,56 @@ ATUALIZA_NAVE proc
     call DESENHA_SPRITE 
 
 
+    pop DX
+    pop CX
+    pop BX
+    pop AX
+    ret
+endp
+
+_GERA_PROJETIL proc
+    ;TODO: Verificar se está no fim da tela
+    ;TODO: Verificar se o projetil atingiu um asteroide
+
+    push AX
+    push BX
+    push CX
+    push DX
+    push SI
+
+    mov CX, MAX_PROJETEIS
+    mov SI, offset PROJETEIS
+
+    ; 1 - Verificar se existe um espaço para projetil vazio
+    __LOOP_VERIFICAR_PROJETEIS:
+        mov AX, [SI]
+        cmp AX, 0 ; Se 0, espaço do projetil está vazio
+        je __GERA_PROJETIL
+
+        add SI, WORD_SIZE; Proximo projetil
+        loop __LOOP_VERIFICAR_PROJETEIS
+
+    jmp __FIM_GERA_PROJETIL
+
+    __GERA_PROJETIL:
+        mov ax, naveY
+        add ax, SPRITE_HEIGHT / 2 ; Move o projetil para o meio da nav
+
+        mov bx, naveX
+        add bx, SPRITE_WIDTH
+
+        call CONVERTE_XY
+        ; AX = Coordenada do projetil
+
+        mov DX, 2 ; Tamanho do projetil
+        mov BX, COLOR_WHITE
+        call DESENHA_LINHA
+        
+        mov [SI], AX
+        jmp __FIM_GERA_PROJETIL
+
+    __FIM_GERA_PROJETIL:
+    pop SI
     pop DX
     pop CX
     pop BX
@@ -771,6 +1149,7 @@ _MOVE_NAVE proc
         jmp __MOVE_NAVE_FIM
     
     __ATIRAR:
+        call _GERA_PROJETIL    
         jmp __MOVE_NAVE_FIM
 
     __MOVE_NAVE_FIM:
@@ -788,7 +1167,7 @@ _MOVE_NAVE proc
         ret
 endp
 
-; Converte posicao X,Y -> offset
+; Converte posicao X,Y -> coordeanda linear
 ; AX = X
 ; BX = Y
 CONVERTE_XY proc
