@@ -152,14 +152,15 @@
     SPRITE_HEIGHT EQU 10
 
     ; Constantes do jogo       
-    NAVE_SPEED  EQU 1
-    MAX_ASTEROIDES  EQU 8
-    MAX_PROJETEIS   EQU 20         
-    MAX_REPARADORES EQU 1          
-    MAX_ESCUDOS     EQU 1 
-    MAX_NIVEIS      EQU 5
-    TEMPO_POR_NIVEL EQU 30
+    NAVE_SPEED          EQU 1
+    MAX_ASTEROIDES      EQU 8
+    MAX_PROJETEIS       EQU 20         
+    MAX_REPARADORES     EQU 1          
+    MAX_ESCUDOS         EQU 1 
+    MAX_NIVEIS          EQU 5
+    TEMPO_POR_NIVEL     EQU 30
     TEMPO_ENTRE_ESCUDOS EQU 10
+    TEMPO_DURACAO_ESCUDO EQU 5
 
     ; Estado inicial do jogo
     NRO_VIDAS_INICIAL       EQU 10
@@ -1254,7 +1255,7 @@ MOVE_ESCUDO proc
     jmp __FIM_MOVE_ESCUDOS
 
     __COLISAO_ESCUDO_NAVE:
-        mov tempoImunidade, 5
+        mov tempoImunidade, TEMPO_DURACAO_ESCUDO
         jmp __DESTROI_ESCUDO
 
     __DESTROI_ESCUDO:
