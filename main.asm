@@ -84,16 +84,16 @@
                        0  ,0  ,0  ,0  ,7  ,7  ,0  ,0  ,0  ,0, \
                        0  ,0  ,0  ,0  ,7  ,7  ,0  ,0  ,0  ,0
 
-    SPRITE_VIDA     DB 0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \ 
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
-                       4  ,4  ,4  ,4  ,0CH,0CH,4  ,4  ,4  ,4, \
-                       4  ,4  ,4  ,4  ,0CH,0CH,4  ,4  ,4  ,4, \
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
-                       0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0
+    SPRITE_REPARADOR DB 0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \ 
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
+                        4  ,4  ,4  ,4  ,0CH,0CH,4  ,4  ,4  ,4, \
+                        4  ,4  ,4  ,4  ,0CH,0CH,4  ,4  ,4  ,4, \
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0, \
+                        0  ,0  ,0  ,0  ,4  ,4  ,0  ,0  ,0  ,0
     
     
     SPRITE_ESCUDO   DB 0  ,0  ,0  ,0  ,2  ,2  ,0  ,0  ,0  ,0, \
@@ -139,7 +139,7 @@
     NAVE_SPEED  EQU 2
     MAX_ASTEROIDES  EQU 8
     MAX_PROJETEIS   EQU 20         
-                       
+    MAX_REPARADORES EQU 1          
                        
                        
     ; Estado do jogo
@@ -151,7 +151,8 @@
     
     ASTEROIDES      DW MAX_ASTEROIDES dup(0)
     PROJETEIS       DW MAX_PROJETEIS dup(0)
-          
+    REPARADORES     DW MAX_REPARADORES dup(0)
+
 .code
 
 CALC_STRING_LENGTH proc
@@ -945,8 +946,19 @@ MOVE_ASTEROIDES proc
     ret
 endp
 
+REPARAR_NAVE proc
+    add nroVidas, 5
+    cmp nroVidas, 10
+    jl __FIM_REPARAR_NAVE
+
+    mov nroVidas, 10 ; Garante que o numero de vidas nao ultrapasse o maximo
+
+    __FIM_REPARAR_NAVE:
+    ret
+endp
+
 DIMINUI_VIDA_NAVE proc
-    sub nroVidas, 1
+    sub nroVidas, 3
     cmp nroVidas, 0
 
     jne __FIM_DIMINUI_VIDA_NAVE
@@ -955,6 +967,162 @@ DIMINUI_VIDA_NAVE proc
 
     __FIM_DIMINUI_VIDA_NAVE:
         ret
+endp
+
+GERA_REPARADOR proc
+    push AX
+    push BX
+    push CX
+    push DX
+    push SI
+
+    cmp nroVidas, 5
+    jg __FIM_GERA_REPARADOR
+    
+    ; Gera um numero aleatorio entre 0 e 9
+    ; Se for menor que 4, gera um reparador (50% de chance)
+    call RAND_NUMBER
+    cmp DX, 4
+    jl __FIM_GERA_REPARADOR
+    
+    ; Verifica se tem um slot para reparador, se tiver, gera um reparador
+    mov CX, MAX_REPARADORES
+    mov SI, offset REPARADORES
+    __LOOP_VERIFICA_REPARADOR:
+        mov AX, [SI]
+        cmp AX, 0
+        je __GERA_REPARADOR
+    
+        add SI, WORD_SIZE; Proximo asteroide
+        loop __LOOP_VERIFICA_REPARADOR
+    
+    jmp __FIM_GERA_REPARADOR
+    
+    __GERA_REPARADOR:
+        push SI
+
+        mov AX, SCREEN_WIDTH * 18
+        call RAND_NUMBER
+        
+        mul DX
+        add AX, SCREEN_WIDTH * 2 - 10
+        
+        mov SI, offset SPRITE_REPARADOR
+        call DESENHA_SPRITE 
+        
+        pop SI
+        mov [SI], AX
+
+    __FIM_GERA_REPARADOR:
+        pop SI
+        pop DX
+        pop CX
+        pop BX
+        pop AX
+    ret
+endp
+
+MOVE_REPARADOR proc
+    push CX
+    push SI
+    push AX
+    push BX
+    push DX
+    
+    mov CX, MAX_REPARADORES
+    mov SI, offset REPARADORES
+    
+    ; Calcula a velocidade do reparador
+    ; DX = nivelAtual * NAVE_SPEED
+    xor BX, BX
+    mov AL, nivelAtual
+    mov BL, NAVE_SPEED
+    mul BL
+    mov DX, AX
+
+    __VERIFICA_REPARADORES_EXISTENTES:
+        mov AX, [SI]
+        cmp AX, 0 ; Se existe o reparador, move ele
+        jne __MOVE_REPARADOR
+        
+        __CONTINUA_VERIFICA_REPARADORES_EXISTENTES:
+            add SI, WORD_SIZE ; Proximo reparador
+            loop __VERIFICA_REPARADORES_EXISTENTES
+
+    jmp __FIM_MOVE_REPARADORES
+    
+    __MOVE_REPARADOR:
+        push SI
+
+        ;1 - Limpa o reparador da tela
+        call LIMPA_SPRITE
+
+        ;2 - Move o reparador
+        sub AX, DX
+
+        ;3 - Verifica se o reparador saiu da tela
+        push AX
+        push DX
+
+        call COORD_LINEAR_PARA_CARTESIANA
+        cmp AX, 0
+
+        pop DX
+        pop AX
+
+        je __DESTROI_REPARADOR
+
+        ;4 - Verifica se o reparador bateu na nave
+        push AX
+        push BX
+        push CX
+
+        mov CX, AX
+
+        mov AX, naveY
+        mov BX, naveX
+
+        call CONVERTE_XY
+
+        ; AX = coordenada linear da nave
+        ; BX = coordenada linear do reparador
+        mov BX, CX
+        call VERIFICA_COLISAO_SPRITE
+
+        pop CX
+        pop BX
+        pop AX
+
+        je __COLISAO_REPARADOR_NAVE
+
+        ;4 - Desenha o reparador na nova posição
+        mov SI, offset SPRITE_REPARADOR
+        call DESENHA_SPRITE
+
+        pop SI
+        mov [SI], AX ; Salva a nova posição do reparador
+
+        jmp __CONTINUA_VERIFICA_REPARADORES_EXISTENTES
+
+    jmp __FIM_MOVE_REPARADORES
+
+    __COLISAO_REPARADOR_NAVE:
+        call REPARAR_NAVE
+        jmp __DESTROI_REPARADOR
+
+    __DESTROI_REPARADOR:
+        pop SI
+        mov BX, 0
+        mov [SI], BX 
+        jmp __CONTINUA_VERIFICA_REPARADORES_EXISTENTES
+
+    __FIM_MOVE_REPARADORES:
+        pop DX
+        pop BX
+        pop AX
+        pop SI
+        pop CX
+    ret
 endp
 
 GERA_ASTEROIDE proc
@@ -1021,6 +1189,7 @@ INICIAR_JOGO proc
         call SLEEP 
         call MOVE_PROJETIL
         call MOVE_ASTEROIDES
+        call MOVE_REPARADOR
 
         inc BX
         cmp BX, TARGET_FRAMERATE
@@ -1031,6 +1200,7 @@ INICIAR_JOGO proc
     ATUALIZA_TEMPO_RESTANTE:        
         dec tempoRestante
         xor BX, BX
+        call GERA_REPARADOR
         call GERA_ASTEROIDE
         jmp MAIN
         
