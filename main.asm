@@ -33,7 +33,7 @@
             
     STRING_VITORIA  DB '      __     __      __  ___     __     ' 
                     DB '     |__)/\ |__) /\ |__)|__ |\ |/__`    ' 
-                    DB '     |  /~~\|  \/~~\|__)|___| \|.__/    '
+                    DB '     |  /~~\|  \/~~\|__)|___| \|.__/    ', '$'
         
     SCREEN_WIDTH    EQU 320
     SCREEN_HEIGHT   EQU 200
@@ -150,17 +150,19 @@
     SPRITE_WIDTH    EQU 10
     SPRITE_HEIGHT   EQU 10
     BAR_MAX_SIZE    EQU 100
+
     ; Constantes do jogo       
-    NAVE_SPEED          EQU 1
-    MAX_ASTEROIDES      EQU 8
-    MAX_PROJETEIS       EQU 20         
-    MAX_REPARADORES     EQU 1          
-    MAX_ESCUDOS         EQU 1 
-    MAX_NIVEIS          EQU 5
-    MAX_VIDAS           EQU 10
-    TEMPO_POR_NIVEL     EQU 30
-    TEMPO_ENTRE_ESCUDOS EQU 10
-    TEMPO_DURACAO_ESCUDO EQU 5
+    NAVE_SPEED              EQU 1
+    MAX_ASTEROIDES          EQU 8
+    MAX_PROJETEIS           EQU 20         
+    MAX_REPARADORES         EQU 1          
+    MAX_ESCUDOS             EQU 1 
+    MAX_NIVEIS              EQU 5
+    MAX_VIDAS               EQU 10
+    TEMPO_POR_NIVEL         EQU 2
+    TEMPO_ENTRE_ESCUDOS     EQU 10
+    TEMPO_DURACAO_ESCUDO    EQU 5
+    DANO_POR_ASTEORIDE      EQU 3
 
     ; Estado inicial do jogo
     NAVE_X_INICIAL          EQU 160
@@ -1037,7 +1039,7 @@ DIMINUI_VIDA_NAVE proc
     cmp tempoImunidade, 0
     jg __FIM_DIMINUI_VIDA_NAVE
 
-    sub nroVidas, 1
+    sub nroVidas, DANO_POR_ASTEORIDE
     cmp nroVidas, 0
 
     jge __FIM_DIMINUI_VIDA_NAVE
@@ -1045,7 +1047,6 @@ DIMINUI_VIDA_NAVE proc
     mov AL, COLOR_RED
     mov SI, offset STRING_DERROTA
     call RENDERIZA_TELA_FINAL
-    call RESET_JOGO
     __FIM_DIMINUI_VIDA_NAVE:
         ret
 endp
@@ -1056,6 +1057,7 @@ RESET_JOGO proc
     mov naveX, NAVE_X_INICIAL
     mov naveY, NAVE_Y_INICIAL
     mov nivelAtual, NIVEL_INICIAL
+
     mov tempoImunidade, 0
     mov cooldownEscudo, 0
 
@@ -1746,7 +1748,7 @@ RENDERIZA_TELA_FINAL proc
         
 
         mov CX, 0
-        mov DX, 1h
+        mov DX, 1H
         mov AH, 86H 
         int 15H
 
@@ -1759,14 +1761,26 @@ RENDERIZA_TELA_FINAL proc
     mov BL, COLOR_WHITE
     call ESCREVE_STRING
 
+    call LIMPAR_STDIN
+
     mov ah, 01h
     int 21h
+
+    call RESET_JOGO
 
     pop DI
     pop DX
     pop CX
     pop BX
     pop AX
+    ret
+endp
+
+LIMPAR_STDIN proc
+    ; Limpa o buffer do teclado
+    mov AH, 0Ch
+    mov AL, 0
+    int 21h
     ret
 endp
 
