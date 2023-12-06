@@ -18,7 +18,19 @@
         DB '                          __/ |         '
         DB '                         |___/          ', '$'
     
-    
+    STRING_DERROTA  DB '      __      __                        '
+                    DB '      \ \    / /                        '
+                    DB '       \ \  / /___    ___  ___          '
+                    DB '        \ \/ // _ \  / __|/ _ \         '
+                    DB '         \  /| (_) || (__|  __/         '
+                    DB '          \/  \___/  \___|\___|         '
+                    DB '   _____                _               '
+                    DB '  |  __ \              | |              '
+                    DB '  | |__) |___  _ __  __| |  ___  _   _  '
+                    DB '  |  ___// _ \| ,__|/ _` | / _ \| | | | '
+                    DB '  | |   |  __/| |  | (_| ||  __/| |_| | '
+                    DB '  |_|    \___||_|   \__,_| \___| \__,_| ', '$'
+
     SCREEN_WIDTH    EQU 320
     SCREEN_HEIGHT   EQU 200
      
@@ -140,15 +152,22 @@
     MAX_ASTEROIDES  EQU 8
     MAX_PROJETEIS   EQU 20         
     MAX_REPARADORES EQU 1          
-    MAX_ESCUDOS     EQU 1               
-                       
+    MAX_ESCUDOS     EQU 1      
+    
+    NRO_VIDAS_INICIAL       EQU 10
+    TEMPO_IMUNIDADE_INICIAL EQU 0
+    TEMPO_RESTANTE_INICIAL  EQU 30     
+    NAVE_X_INICIAL          EQU 30
+    NAVE_Y_INICIAL          EQU 80
+    NIVEL_INICIAL           EQU 1
+
     ; Estado do jogo
-    nroVidas        DB 10
-    tempoImunidade  DW 0
-    tempoRestante   DW 30  
-    naveX           DW 30
-    naveY           DW 80
-    nivelAtual      DB 1
+    nroVidas        DB NRO_VIDAS_INICIAL
+    tempoImunidade  DW TEMPO_IMUNIDADE_INICIAL
+    tempoRestante   DW TEMPO_RESTANTE_INICIAL  
+    naveX           DW NAVE_X_INICIAL
+    naveY           DW NAVE_Y_INICIAL
+    nivelAtual      DB NIVEL_INICIAL
 
     ASTEROIDES      DW MAX_ASTEROIDES dup(0)
     PROJETEIS       DW MAX_PROJETEIS dup(0)
@@ -183,12 +202,12 @@ ESCREVE_STRING proc
     
     mov AX, DS
     mov ES, AX
-    mov AH, 13H
     mov AL, 1
     mov BH, 0
     call CALC_STRING_LENGTH
     mov DL, 0
     mov BP, SI
+    mov AH, 13H
     int 10H
 
     pop DX
@@ -966,12 +985,58 @@ DIMINUI_VIDA_NAVE proc
     cmp nroVidas, 0
 
     jge __FIM_DIMINUI_VIDA_NAVE
-    mov AH, 4CH
-    int 21H
-
+    
+    mov AL, COLOR_RED
+    mov SI, offset STRING_DERROTA
+    call RENDERIZA_TELA_FINAL
+    call RESET_JOGO
     __FIM_DIMINUI_VIDA_NAVE:
         ret
 endp
+
+RESET_JOGO proc
+    mov nroVidas, NRO_VIDAS_INICIAL
+    mov tempoImunidade, TEMPO_IMUNIDADE_INICIAL
+    mov tempoRestante, TEMPO_RESTANTE_INICIAL
+    mov naveX, NAVE_X_INICIAL
+    mov naveY, NAVE_Y_INICIAL
+    mov nivelAtual, NIVEL_INICIAL
+
+    push AX
+    push BX
+    push ES
+
+    mov BX, DS
+    mov ES, BX
+
+    xor AX, AX
+    
+    mov DI, offset ASTEROIDES
+    mov CX, MAX_ASTEROIDES
+    rep stosw
+
+    mov DI, offset PROJETEIS
+    mov CX, MAX_PROJETEIS
+    rep stosw
+
+    mov DI, offset REPARADORES
+    mov CX, MAX_REPARADORES
+    rep stosw
+
+    mov DI, offset ESCUDOS
+    mov CX, MAX_ESCUDOS
+    rep stosw
+
+    pop BX
+    mov ES, BX
+
+    pop BX
+    pop AX
+
+    call MOSTRAR_TELA_INICIAL
+endp
+
+
 
 GERA_ESCUDO proc
     push AX
@@ -1342,7 +1407,7 @@ INICIAR_JOGO proc
     mov AX, VIDEO_BASE_ADDR
     mov ES, AX
     
-    xor BX, BX  
+    xor BX, BX
     MAIN:
 
         call ATUALIZA_BARRA_VIDA
@@ -1368,6 +1433,7 @@ INICIAR_JOGO proc
         call DIMINUI_TEMPO_IMUNIDADE
         call GERA_ASTEROIDE
         call GERA_REPARADOR
+        
         jmp MAIN
         
     FIM_JOGO:
@@ -1582,6 +1648,50 @@ SLEEP proc
     ret
 endp
 
+; SI = string
+; AL = cor background
+RENDERIZA_TELA_FINAL proc
+    push AX
+    push BX
+    push CX
+    push DX
+    push DI
+
+    mov CX, SCREEN_WIDTH * 180 / 30 ; Dividido por 30 o loop desenha 30 por vez
+    mov DI, 0
+
+    LOOP_PINTA_TELA_FIM_JOGO:
+        push CX
+        push AX
+
+        mov CX, 30
+        rep stosb
+        
+
+        mov CX, 0
+        mov DX, 1h
+        mov AH, 86H 
+        int 15H
+
+        pop AX
+        pop CX 
+        
+        loop LOOP_PINTA_TELA_FIM_JOGO
+
+    mov DH, 5
+    mov BL, COLOR_WHITE
+    call ESCREVE_STRING
+
+    mov ah, 01h
+    int 21h
+
+    pop DI
+    pop DX
+    pop CX
+    pop BX
+    pop AX
+    ret
+endp
 
 ;retorna um numero aleatorio em DL de 0 a 9
 RAND_NUMBER proc
@@ -1614,7 +1724,6 @@ endp
 INICIO:
     mov AX, @data
     mov DS, AX
-    
     call MOSTRAR_TELA_INICIAL
 
     mov AH, 4CH
