@@ -937,7 +937,7 @@ MOVE_ASTEROIDES proc
         push DX
 
         call COORD_LINEAR_PARA_CARTESIANA
-        cmp AX, 0
+        cmp DX, 0
 
         pop DX
         pop AX
@@ -1235,7 +1235,7 @@ MOVE_ESCUDO proc
         push DX
 
         call COORD_LINEAR_PARA_CARTESIANA
-        cmp AX, 0
+        cmp DX, 0
 
         pop DX
         pop AX
@@ -1338,7 +1338,7 @@ MOVE_REPARADOR proc
         push DX
 
         call COORD_LINEAR_PARA_CARTESIANA
-        cmp AX, 0
+        cmp DX, 0
 
         pop DX
         pop AX
