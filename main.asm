@@ -30,7 +30,11 @@
                     DB '  |  ___// _ \| ,__|/ _` | / _ \| | | | '
                     DB '  | |   |  __/| |  | (_| ||  __/| |_| | '
                     DB '  |_|    \___||_|   \__,_| \___| \__,_| ', '$'
-
+            
+    STRING_VITORIA  DB '      __     __      __  ___     __     ' 
+                    DB '     |__)/\ |__) /\ |__)|__ |\ |/__`    ' 
+                    DB '     |  /~~\|  \/~~\|__)|___| \|.__/    '
+        
     SCREEN_WIDTH    EQU 320
     SCREEN_HEIGHT   EQU 200
      
@@ -147,16 +151,18 @@
     SPRITE_WIDTH EQU 10
     SPRITE_HEIGHT EQU 10
 
-    ; Constantes do jogo                  
-    NAVE_SPEED  EQU 2
+    ; Constantes do jogo       
+    NAVE_SPEED  EQU 1
     MAX_ASTEROIDES  EQU 8
     MAX_PROJETEIS   EQU 20         
     MAX_REPARADORES EQU 1          
-    MAX_ESCUDOS     EQU 1      
-    
+    MAX_ESCUDOS     EQU 1 
+    MAX_NIVEIS      EQU 5
+    TEMPO_POR_NIVEL EQU 30
+
+    ; Estado inicial do jogo
     NRO_VIDAS_INICIAL       EQU 10
-    TEMPO_IMUNIDADE_INICIAL EQU 0
-    TEMPO_RESTANTE_INICIAL  EQU 30     
+    TEMPO_IMUNIDADE_INICIAL EQU 0 
     NAVE_X_INICIAL          EQU 30
     NAVE_Y_INICIAL          EQU 80
     NIVEL_INICIAL           EQU 1
@@ -164,7 +170,7 @@
     ; Estado do jogo
     nroVidas        DB NRO_VIDAS_INICIAL
     tempoImunidade  DW TEMPO_IMUNIDADE_INICIAL
-    tempoRestante   DW TEMPO_RESTANTE_INICIAL  
+    tempoRestante   DW TEMPO_POR_NIVEL  
     naveX           DW NAVE_X_INICIAL
     naveY           DW NAVE_Y_INICIAL
     nivelAtual      DB NIVEL_INICIAL
@@ -997,7 +1003,7 @@ endp
 RESET_JOGO proc
     mov nroVidas, NRO_VIDAS_INICIAL
     mov tempoImunidade, TEMPO_IMUNIDADE_INICIAL
-    mov tempoRestante, TEMPO_RESTANTE_INICIAL
+    mov tempoRestante, TEMPO_POR_NIVEL
     mov naveX, NAVE_X_INICIAL
     mov naveY, NAVE_Y_INICIAL
     mov nivelAtual, NIVEL_INICIAL
@@ -1425,7 +1431,6 @@ INICIAR_JOGO proc
         je ATUALIZA_TEMPO_RESTANTE
 
         jmp MAIN
-    
     ATUALIZA_TEMPO_RESTANTE:        
         dec tempoRestante
         xor BX, BX
@@ -1434,11 +1439,27 @@ INICIAR_JOGO proc
         call GERA_ASTEROIDE
         call GERA_REPARADOR
         
+        cmp tempoRestante, 0
+        je __PROXIMO_NIVEL
+
         jmp MAIN
-        
-    FIM_JOGO:
-        pop BX
-        pop AX
+
+    __PROXIMO_NIVEL:
+        inc nivelAtual
+
+        cmp nivelAtual, MAX_NIVEIS
+        jg __VITORIA
+
+        mov tempoRestante, TEMPO_POR_NIVEL
+        jmp MAIN
+
+    __VITORIA:
+        mov AL, COLOR_YELLOW
+        mov SI, offset STRING_VITORIA
+        call RENDERIZA_TELA_FINAL
+
+    pop BX
+    pop AX
     ret
 endp
 
