@@ -1042,11 +1042,12 @@ DIMINUI_VIDA_NAVE proc
     sub nroVidas, DANO_POR_ASTEORIDE
     cmp nroVidas, 0
 
-    jge __FIM_DIMINUI_VIDA_NAVE
+    jg __FIM_DIMINUI_VIDA_NAVE
     
     mov AL, COLOR_RED
     mov SI, offset STRING_DERROTA
     call RENDERIZA_TELA_FINAL
+
     __FIM_DIMINUI_VIDA_NAVE:
         ret
 endp
