@@ -140,18 +140,20 @@
     MAX_ASTEROIDES  EQU 8
     MAX_PROJETEIS   EQU 20         
     MAX_REPARADORES EQU 1          
-                       
+    MAX_ESCUDOS     EQU 1               
                        
     ; Estado do jogo
     nroVidas        DB 10
+    tempoImunidade  DW 0
     tempoRestante   DW 30  
     naveX           DW 30
     naveY           DW 80
     nivelAtual      DB 1
-    
+
     ASTEROIDES      DW MAX_ASTEROIDES dup(0)
     PROJETEIS       DW MAX_PROJETEIS dup(0)
     REPARADORES     DW MAX_REPARADORES dup(0)
+    ESCUDOS         DW MAX_ESCUDOS dup(0)
 
 .code
 
@@ -946,27 +948,85 @@ MOVE_ASTEROIDES proc
     ret
 endp
 
-REPARAR_NAVE proc
-    add nroVidas, 5
-    cmp nroVidas, 10
-    jl __FIM_REPARAR_NAVE
+DIMINUI_TEMPO_IMUNIDADE proc
+    cmp tempoImunidade, 0
+    jle __FIM_DIMINUI_TEMPO_IMUNIDADE
 
-    mov nroVidas, 10 ; Garante que o numero de vidas nao ultrapasse o maximo
+    dec tempoImunidade
 
-    __FIM_REPARAR_NAVE:
-    ret
+    __FIM_DIMINUI_TEMPO_IMUNIDADE:
+        ret
 endp
 
 DIMINUI_VIDA_NAVE proc
+    cmp tempoImunidade, 0
+    jg __FIM_DIMINUI_VIDA_NAVE
+
     sub nroVidas, 3
     cmp nroVidas, 0
 
-    jne __FIM_DIMINUI_VIDA_NAVE
+    jge __FIM_DIMINUI_VIDA_NAVE
     mov AH, 4CH
     int 21H
 
     __FIM_DIMINUI_VIDA_NAVE:
         ret
+endp
+
+GERA_ESCUDO proc
+    push AX
+    push BX
+    push CX
+    push DX
+    push SI
+
+    cmp tempoImunidade, 0
+    jg __FIM_GERA_ESCUDO
+
+    cmp nroVidas, 5
+    jg __FIM_GERA_ESCUDO
+
+    ; Gera um numero aleatorio entre 0 e 9
+    ; Se for menor que 1, gera um reparador (20% de chance)
+    call RAND_NUMBER
+    cmp DX, 1
+    jle __FIM_GERA_ESCUDO
+    
+    ; Verifica se tem um slot para reparador, se tiver, gera um reparador
+    mov CX, MAX_ESCUDOS
+    mov SI, offset ESCUDOS
+    __LOOP_VERIFICA_ESCUDO:
+        mov AX, [SI]
+        cmp AX, 0
+        je __GERA_ESCUDO
+    
+        add SI, WORD_SIZE; Proximo asteroide
+        loop __LOOP_VERIFICA_ESCUDO
+    
+    jmp __FIM_GERA_ESCUDO
+    
+    __GERA_ESCUDO:
+        push SI
+
+        mov AX, SCREEN_WIDTH * 18
+        call RAND_NUMBER
+        
+        mul DX
+        add AX, SCREEN_WIDTH * 2 - 10
+        
+        mov SI, offset SPRITE_ESCUDO
+        call DESENHA_SPRITE 
+        
+        pop SI
+        mov [SI], AX
+
+    __FIM_GERA_ESCUDO:
+        pop SI
+        pop DX
+        pop CX
+        pop BX
+        pop AX
+    ret
 endp
 
 GERA_REPARADOR proc
@@ -978,7 +1038,7 @@ GERA_REPARADOR proc
 
     cmp nroVidas, 5
     jg __FIM_GERA_REPARADOR
-    
+
     ; Gera um numero aleatorio entre 0 e 9
     ; Se for menor que 4, gera um reparador (50% de chance)
     call RAND_NUMBER
@@ -1019,6 +1079,109 @@ GERA_REPARADOR proc
         pop CX
         pop BX
         pop AX
+    ret
+endp
+
+MOVE_ESCUDO proc
+    push CX
+    push SI
+    push AX
+    push BX
+    push DX
+    
+    mov CX, MAX_ESCUDOS
+    mov SI, offset ESCUDOS
+    
+    ; Calcula a velocidade do reparador
+    ; DX = nivelAtual * NAVE_SPEED
+    xor BX, BX
+    mov AL, nivelAtual
+    mov BL, NAVE_SPEED
+    mul BL
+    mov DX, AX
+
+    __VERIFICA_ESCUDOS_EXISTENTES:
+        mov AX, [SI]
+        cmp AX, 0 ; Se existe o reparador, move ele
+        jne __MOVE_ESCUDO
+        
+        __CONTINUA_VERIFICA_ESCUDOS_EXISTENTES:
+            add SI, WORD_SIZE ; Proximo reparador
+            loop __VERIFICA_ESCUDOS_EXISTENTES
+
+    jmp __FIM_MOVE_ESCUDOS
+    
+    __MOVE_ESCUDO:
+        push SI
+
+        ;1 - Limpa o ESCUDO da tela
+        call LIMPA_SPRITE
+
+        ;2 - Move o ESCUDO
+        sub AX, DX
+
+        ;3 - Verifica se o ESCUDO saiu da tela
+        push AX
+        push DX
+
+        call COORD_LINEAR_PARA_CARTESIANA
+        cmp AX, 0
+
+        pop DX
+        pop AX
+
+        je __DESTROI_ESCUDO
+
+        ;4 - Verifica se o ESCUDO bateu na nave
+        push AX
+        push BX
+        push CX
+
+        mov CX, AX
+
+        mov AX, naveY
+        mov BX, naveX
+
+        call CONVERTE_XY
+
+        ; AX = coordenada linear da nave
+        ; BX = coordenada linear do ESCUDO
+        mov BX, CX
+        call VERIFICA_COLISAO_SPRITE
+
+        pop CX
+        pop BX
+        pop AX
+
+        je __COLISAO_ESCUDO_NAVE
+
+        ;4 - Desenha o ESCUDO na nova posição
+        mov SI, offset SPRITE_ESCUDO
+        call DESENHA_SPRITE
+
+        pop SI
+        mov [SI], AX ; Salva a nova posição do ESCUDO
+
+        jmp __CONTINUA_VERIFICA_ESCUDOS_EXISTENTES
+
+    jmp __FIM_MOVE_ESCUDOS
+
+    __COLISAO_ESCUDO_NAVE:
+        mov tempoImunidade, 5
+        jmp __DESTROI_ESCUDO
+
+    __DESTROI_ESCUDO:
+        pop SI
+        mov BX, 0
+        mov [SI], BX 
+        jmp __CONTINUA_VERIFICA_ESCUDOS_EXISTENTES
+
+    __FIM_MOVE_ESCUDOS:
+        pop DX
+        pop BX
+        pop AX
+        pop SI
+        pop CX
     ret
 endp
 
@@ -1107,7 +1270,7 @@ MOVE_REPARADOR proc
     jmp __FIM_MOVE_REPARADORES
 
     __COLISAO_REPARADOR_NAVE:
-        call REPARAR_NAVE
+        mov nroVidas, 10
         jmp __DESTROI_REPARADOR
 
     __DESTROI_REPARADOR:
@@ -1190,6 +1353,7 @@ INICIAR_JOGO proc
         call MOVE_PROJETIL
         call MOVE_ASTEROIDES
         call MOVE_REPARADOR
+        call MOVE_ESCUDO
 
         inc BX
         cmp BX, TARGET_FRAMERATE
@@ -1200,8 +1364,10 @@ INICIAR_JOGO proc
     ATUALIZA_TEMPO_RESTANTE:        
         dec tempoRestante
         xor BX, BX
-        call GERA_REPARADOR
+        call GERA_ESCUDO
+        call DIMINUI_TEMPO_IMUNIDADE
         call GERA_ASTEROIDE
+        call GERA_REPARADOR
         jmp MAIN
         
     FIM_JOGO:
