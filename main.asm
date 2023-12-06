@@ -159,10 +159,10 @@
     MAX_ESCUDOS             EQU 1 
     MAX_NIVEIS              EQU 5
     MAX_VIDAS               EQU 10
-    TEMPO_POR_NIVEL         EQU 2
+    TEMPO_POR_NIVEL         EQU 30
     TEMPO_ENTRE_ESCUDOS     EQU 10
     TEMPO_DURACAO_ESCUDO    EQU 5
-    DANO_POR_ASTEORIDE      EQU 3
+    DANO_POR_ASTEORIDE      EQU 1
 
     ; Estado inicial do jogo
     NAVE_X_INICIAL          EQU 160
