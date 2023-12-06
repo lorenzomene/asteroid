@@ -1043,7 +1043,10 @@ DIMINUI_VIDA_NAVE proc
     cmp nroVidas, 0
 
     jg __FIM_DIMINUI_VIDA_NAVE
-    
+
+    ; Atualiza a barra uma ultima vez pra ficar correto o valor em tela
+    call ATUALIZA_BARRA_VIDA 
+
     mov AL, COLOR_RED
     mov SI, offset STRING_DERROTA
     call RENDERIZA_TELA_FINAL
