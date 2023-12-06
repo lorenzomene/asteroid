@@ -68,7 +68,6 @@
     KEY_W       EQU 11h
     KEY_S       EQU 1Fh
     KEY_SPACE   EQU 39h
-    BAR_STEP_SIZE    EQU 10
     
     TARGET_FRAMERATE EQU 20
     
@@ -148,9 +147,9 @@
 
     DEBUG_MODE EQU 0 ; 1 = Ativa o sprite de debug, 0 = Desativa o sprite de debug
 
-    SPRITE_WIDTH EQU 10
-    SPRITE_HEIGHT EQU 10
-
+    SPRITE_WIDTH    EQU 10
+    SPRITE_HEIGHT   EQU 10
+    BAR_MAX_SIZE    EQU 100
     ; Constantes do jogo       
     NAVE_SPEED          EQU 1
     MAX_ASTEROIDES      EQU 8
@@ -158,18 +157,18 @@
     MAX_REPARADORES     EQU 1          
     MAX_ESCUDOS         EQU 1 
     MAX_NIVEIS          EQU 5
+    MAX_VIDAS           EQU 10
     TEMPO_POR_NIVEL     EQU 30
     TEMPO_ENTRE_ESCUDOS EQU 10
     TEMPO_DURACAO_ESCUDO EQU 5
 
     ; Estado inicial do jogo
-    NRO_VIDAS_INICIAL       EQU 10
     NAVE_X_INICIAL          EQU 160
     NAVE_Y_INICIAL          EQU 100
     NIVEL_INICIAL           EQU 1
 
     ; Estado do jogo
-    nroVidas        DB NRO_VIDAS_INICIAL
+    nroVidas        DB MAX_VIDAS
     tempoRestante   DW TEMPO_POR_NIVEL  
     naveX           DW NAVE_X_INICIAL
     naveY           DW NAVE_Y_INICIAL
@@ -523,7 +522,7 @@ endp
 
 
 ; Atualiza a barra de vida
-; DX = Quantidade de vida atual
+; DX = Quantidade de barra atual
 ; BX = Cor da barra
 ; AX = Cordenada inicial da barra
 ATUALIZAR_BARRA_STATUS proc
@@ -532,7 +531,7 @@ ATUALIZAR_BARRA_STATUS proc
     push BX
     push AX
     
-    mov CX, BAR_STEP_SIZE
+    mov CX, 10
     LOOP_LINHAS_STATUS:
         call DESENHA_LINHA
         add AX, SCREEN_WIDTH
@@ -545,14 +544,14 @@ ATUALIZAR_BARRA_STATUS proc
     
     push AX
 
-    mov AX, BAR_STEP_SIZE * 10
+    mov AX, BAR_MAX_SIZE
     sub AX, DX
     mov DX, AX
     
     pop AX
     
     mov BX, COLOR_BLACK
-    mov CX, BAR_STEP_SIZE
+    mov CX, 10
     LOOP_LINHAS_STATUS_VAZIO:
         call DESENHA_LINHA
         add AX, SCREEN_WIDTH
@@ -596,8 +595,15 @@ ATUALIZA_BARRA_VIDA proc
     push BX
     push DX
 
-    mov AX, BAR_STEP_SIZE
-    mul nroVidas
+    ; Calcula o tamanho da barra
+    xor DX, DX
+    xor AX, AX
+
+    mov AL, nroVidas
+    mov BX, 100
+    mul BX
+    mov BX, MAX_VIDAS
+    div BX
     mov DX, AX
 
     mov AX, SCREEN_WIDTH * 185
@@ -1045,7 +1051,7 @@ DIMINUI_VIDA_NAVE proc
 endp
 
 RESET_JOGO proc
-    mov nroVidas, NRO_VIDAS_INICIAL
+    mov nroVidas, MAX_VIDAS
     mov tempoRestante, TEMPO_POR_NIVEL
     mov naveX, NAVE_X_INICIAL
     mov naveY, NAVE_Y_INICIAL
@@ -1390,7 +1396,7 @@ MOVE_REPARADOR proc
     jmp __FIM_MOVE_REPARADORES
 
     __COLISAO_REPARADOR_NAVE:
-        mov nroVidas, 10
+        mov nroVidas, MAX_VIDAS
         jmp __DESTROI_REPARADOR
 
     __DESTROI_REPARADOR:
