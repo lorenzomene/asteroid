@@ -489,7 +489,7 @@ LIMPA_COLUNA_PIXELS proc
 endp
 
 
-RENDER_INTERFACE proc
+ATUALIZA_BARRA_INFERIOR proc
     push AX
     push BX
     push DX
@@ -502,9 +502,9 @@ RENDER_INTERFACE proc
     
     ; Quadrado vermelho no meio barra amarela
     mov CX, 10
+    mov DX, 10
     mov BX, COLOR_RED
     mov AX, 59355
-    mov DX, 10
     
     LOOP_QUADRADO:
         call DESENHA_LINHA
@@ -1469,7 +1469,7 @@ INICIAR_JOGO proc
     push AX
     push BX
     call SETUP_MODO_VIDEO
-    call RENDER_INTERFACE
+    call ATUALIZA_BARRA_INFERIOR
     
     mov AX, VIDEO_BASE_ADDR
     mov ES, AX
@@ -1540,7 +1540,19 @@ ATUALIZA_NAVE proc
     mov SI, offset SPRITE_NAVE
     call DESENHA_SPRITE 
 
+    mov AX, naveY
+    add AX, SPRITE_HEIGHT
+    cmp AX, SCREEN_HEIGHT - 20; 20 = altura da barra de status
 
+    jge __ATUALIZA_BARRA_INFERIOR
+    cmp naveY, 0
+    jle __ATUALIZA_BARRA_INFERIOR
+    jmp __FIM_ATUALIZA_NAVE
+
+    __ATUALIZA_BARRA_INFERIOR:
+        call ATUALIZA_BARRA_INFERIOR
+    
+    __FIM_ATUALIZA_NAVE:
     pop DX
     pop CX
     pop BX
@@ -1627,10 +1639,26 @@ _MOVE_NAVE proc
 
     __MOVER_CIMA:
         sub naveY, NAVE_SPEED
+        cmp naveY, -SPRITE_HEIGHT / 2
+        jnle __MOVE_NAVE_FIM
+
+        ; Se a nave sair da tela, aparece do outro lado
+        mov naveY, SCREEN_HEIGHT - 20 ; 20 = altura da barra de status
+        sub naveY, SPRITE_HEIGHT / 2
+        call ATUALIZA_BARRA_INFERIOR
+
         jmp __MOVE_NAVE_FIM
 
     __MOVER_BAIXO:
         add naveY, NAVE_SPEED
+
+        cmp naveY, SCREEN_HEIGHT - 25 ; altura da nave / 2 + altura da barra de status  
+        jnge __MOVE_NAVE_FIM
+
+        ; Se a nave sair da tela, aparece do outro lado
+        mov naveY, -SPRITE_HEIGHT / 2
+        call ATUALIZA_BARRA_INFERIOR
+
         jmp __MOVE_NAVE_FIM
     
     __ATIRAR:
