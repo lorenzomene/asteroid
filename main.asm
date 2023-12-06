@@ -282,15 +282,37 @@ RENDERIZA_LOGO proc
     push AX
     push DX
     push BX
+    push ES
 
-    mov DH, 4 ; Linha
+    mov DH, 1 ; Linha
     mov BL, COLOR_GREEN
     mov SI, offset STRING_LOGO
     call ESCREVE_STRING
+ 
+    mov AX, VIDEO_BASE_ADDR
+    mov ES, AX
+    
+    mov AX, SCREEN_WIDTH * 125 + 87
 
+    mov SI, offset SPRITE_NAVE
+    call DESENHA_SPRITE
+    
+    add AX, 45
+    mov SI, offset SPRITE_METEORO
+    call DESENHA_SPRITE
+    
+    add AX, 45
+    mov SI, offset SPRITE_REPARADOR
+    call DESENHA_SPRITE
+    
+    add AX, 45
+    mov SI, offset SPRITE_ESCUDO
+    call DESENHA_SPRITE
+
+    pop ES
     pop BX
     pop DX
-    pop BX
+    pop AX
     
     ret
 endp
