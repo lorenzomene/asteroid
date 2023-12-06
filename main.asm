@@ -496,7 +496,7 @@ RENDER_INTERFACE proc
     
     mov AX, 57600
     mov BX, COLOR_YELLOW
-    mov DX, SCREEN_WIDTH  * 20
+    mov DX, SCREEN_WIDTH * 20
     call DESENHA_LINHA
     
     ; Quadrado vermelho no meio barra amarela
@@ -570,9 +570,19 @@ ATUALIZA_BARRA_TEMPO proc
     push BX
     push DX
 
-    mov AX, 59227 ; Linha
+    ; Calcula o tamanho da barra
+    xor DX, DX
+    mov AX, tempoRestante
+    mov BX, 100
+    mul BX
+    mov BX, TEMPO_POR_NIVEL
+    div BX
+    mov DX, AX
+
+    mov AX, SCREEN_WIDTH * 185
+    add AX, 10
     mov BX, COLOR_CYAN
-    mov DX, tempoRestante
+
     call ATUALIZAR_BARRA_STATUS         
     
     pop DX
